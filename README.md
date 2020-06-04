@@ -15,9 +15,9 @@ ETM defines words and topics in the same embedding space. The likelihood of a wo
 
 + added `scripts/create_20ng.py` to get (and keep) the preprocess the 20Newsgroup corpus;
 + added a script to compute BERT-averaged word embeddings (bad practice, to be improved) : `bert.py`;
-+ modified `scripts/data_20ng.py` to also compute each document's Sentence-BERT embedding, and save its 20NG's labels;
++ modified `scripts/data_20ng.py` to also compute each document's Sentence-BERT embedding, and save their 20NG's label;
 + modified `skipgram.py` to allow using pretrained word2vec, using option `--pretained 1` (requires `GoogleNews-vectors-negative300.bin` to be downloaded from [Google code](https://code.google.com/archive/p/word2vec/));
-+ modified `utils.py` to also test the performances of the thetas in a classification task (namely, find the original 20NG's label). Allows to benchmark with TF-IDF, Word2Vec, LDA ans Sentence-BERT. Simply use the eval procedure as defined bellow, those tests will be performed.
++ modified `main.py` and `utils.py` to also test the performances of the thetas in a classification task (namely, find the original 20NG's label). Allows to benchmark with TF-IDF, Word2Vec, LDA and Sentence-BERT. Simply use the eval procedure as defined bellow, those tests will be performed automatically.
 
 ## Datasets
 
