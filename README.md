@@ -13,10 +13,11 @@ ETM defines words and topics in the same embedding space. The likelihood of a wo
 
 ## What changes from [the original code](https://github.com/adjidieng/ETM)?
 
-+ added a script to get (and keep) the preprocess the 20Newsgroup corpus: `scripts/create_20ng.py`, and keep the labels;
++ added `scripts/create_20ng.py` to get (and keep) the preprocess the 20Newsgroup corpus;
 + added a script to compute BERT-averaged word embeddings (bad practice, to be improved) : `bert.py`;
++ modified `scripts/data_20ng.py` to also compute each document's Sentence-BERT embedding, and save its 20NG's labels;
 + modified `skipgram.py` to allow using pretrained word2vec, using option `--pretained 1` (requires `GoogleNews-vectors-negative300.bin` to be downloaded from [Google code](https://code.google.com/archive/p/word2vec/));
-+ modified `utils.py` to also test the performances of the thetas in a classification task (namely, find the original 20NG's label). Allows to benchmark with TF-IDF, Word2Vec, LDA. Simply use the eval procedure as defined bellow, those tests will be performed.
++ modified `utils.py` to also test the performances of the thetas in a classification task (namely, find the original 20NG's label). Allows to benchmark with TF-IDF, Word2Vec, LDA ans Sentence-BERT. Simply use the eval procedure as defined bellow, those tests will be performed.
 
 ## Datasets
 
@@ -64,8 +65,6 @@ python bert.py --data_file PATH_TO_DATA --emb_file PATH_TO_EMBEDDINGS --dim_rho 
 ```
 python main.py --mode train --dataset 20ng --data_path data/20ng --emb_path PATH_TO_EMBEDDINGS --num_topics 50 --train_embeddings 0 --epochs 1000
 ```
-
-Note that I also added a portion of code 
 
 ## Citation
 
