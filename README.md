@@ -8,8 +8,9 @@ ETM defines words and topics in the same embedding space. The likelihood of a wo
 
 + python 3.6.7
 + pytorch 1.1.0
-+ pytorch 2.X
-+ pandas 1.X
++ tensorflow 2.1+
++ pandas 1.0+
++ gensim 3.8+
 
 ## What changes from [the original code](https://github.com/adjidieng/ETM)?
 
