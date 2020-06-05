@@ -16,6 +16,6 @@ ENV/
 *.hdf5
 
 # Embeddings, trained models and saved texts
-data/embeddings
-data/corpora
-results
+data/embeddings/
+data/corpora/
+results/

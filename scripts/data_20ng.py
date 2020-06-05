@@ -43,6 +43,11 @@ init_docs = [[w for w in init_docs[doc] if not contains_numeric(w)] for doc in r
 init_docs = [[w for w in init_docs[doc] if len(w)>1] for doc in range(len(init_docs))]
 init_docs = [" ".join(init_docs[doc]) for doc in range(len(init_docs))]
 
+# Saving raw corpus (for embeddings computation)
+with open(path_save + '/20ng.txt', 'w', encoding='utf-8') as f:
+	for doc in init_docs:
+		f.write("%s\n" % doc)
+
 # Create count vectorizer
 print('Counting document frequency of words...')
 cvectorizer = CountVectorizer(min_df=min_df, max_df=max_df, stop_words=None)
@@ -104,7 +109,7 @@ labels_va = [labels[idx_permute[idx_d+trSize]] for idx_d in range(vaSize)]
 labels_ts = [labels[idx_d+num_docs_tr] for idx_d in range(tsSize)]
 
 # Using Sentence-BERT to provide benchmark sentence embedding
-print('  training Sentence-BERT embeddings')
+print('  computing Sentence-BERT embeddings')
 from sentence_transformers import SentenceTransformer
 mod = SentenceTransformer('bert-base-nli-mean-tokens')
 tmp_tr = [init_docs[idx_permute[idx_d]] for idx_d in range(trSize)]

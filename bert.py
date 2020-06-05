@@ -12,9 +12,9 @@ import time
 parser = argparse.ArgumentParser(description='The Embedded Topic Model')
 
 ### data and file related arguments
-parser.add_argument('--data_file', type=str, default='', help='a .txt file containing the corpus')
+parser.add_argument('--data_file', type=str, default='data/corpora/20ng', help='a .txt file containing the corpus')
 parser.add_argument('--data_path', type=str, default='data/20ng', help='directory containing data')
-parser.add_argument('--emb_file', type=str, default='embeddings.txt', help='file to save the word embeddings')
+parser.add_argument('--emb_file', type=str, default='data/embeddings/bert.txt', help='file to save the word embeddings')
 parser.add_argument('--dim_rho', type=int, default=300, help='dimensionality of the word embeddings')
 parser.add_argument('--min_count', type=int, default=2, help='minimum term frequency (to define the vocabulary)')
 parser.add_argument('--sg', type=int, default=1, help='whether to use skip-gram')

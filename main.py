@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='The Embedded Topic Model')
 ### data and file related arguments
 parser.add_argument('--dataset', type=str, default='20ng', help='name of corpus')
 parser.add_argument('--data_path', type=str, default='data/20ng', help='directory containing data')
-parser.add_argument('--emb_path', type=str, default='data/20ng_embeddings.txt', help='directory containing word embeddings')
+parser.add_argument('--emb_path', type=str, default='data/embeddings/skipgram.txt', help='directory containing word embeddings')
 parser.add_argument('--save_path', type=str, default='./results', help='path to save results')
 parser.add_argument('--batch_size', type=int, default=1000, help='input batch size for training')
 
