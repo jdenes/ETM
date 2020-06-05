@@ -1,0 +1,20 @@
+# Usual mess
+__pycache__/
+__pypackages__/
+.idea/
+.ipynb_checkpoints
+.python-version
+.env
+.venv
+env/
+venv/
+ENV/
+*.log
+
+# Models files
+*.bin
+*.hdf5
+
+# Embeddings and saved texts
+data/embeddings
+data/corpora
