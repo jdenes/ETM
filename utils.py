@@ -1,5 +1,12 @@
 import torch 
 import numpy as np
+from sklearn.svm import SVC
+from sklearn.neighbors import NearestNeighbors
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from gensim.corpora.dictionary import Dictionary
+from gensim.matutils import corpus2dense
+from gensim.models import LdaModel, TfidfModel, word2vec
 
 def get_topic_diversity(beta, topk):
     num_topics = beta.shape[0]
@@ -73,12 +80,80 @@ def get_topic_coherence(beta, data, vocab):
     TC = np.mean(TC) / counter
     print('Topic coherence is: {}'.format(TC))
 
+
+def get_classif_perf(theta, tokens, labels, embeds, methods=['theta', 'lda', 's-bert', 'tfidf']):
+    # print('Checking inputs dim for classif:', len(theta), len(labels))
+    import pandas as pd
+    perf = []
+    
+    if 'theta' in methods:
+        X = theta
+        perf.append(train_predict(X, labels))
+        
+    if 'lda' in methods:
+        corpus = tokens.tolist()
+        corpus = [[str(w) for w in d[0]] for d in corpus]
+        dictionary = Dictionary(corpus)
+        bow_corpus = [dictionary.doc2bow(x) for x in corpus]
+        mod = LdaModel(bow_corpus, num_topics=theta.shape[1])
+        transcorp = mod[bow_corpus]
+        X = transcorp2matrix(transcorp, bow_corpus, theta.shape[1])
+        perf.append(train_predict(X, labels))      
+        
+    if 's-bert' in methods:
+        from sklearn.decomposition import PCA
+        X = PCA(n_components=theta.shape[1]).fit_transform(embeds)
+        perf.append(train_predict(X, labels))
+
+    if 'tfidf' in methods:
+        corpus = tokens.tolist()
+        corpus = [[str(w) for w in d[0]] for d in corpus]
+        dictionary = Dictionary(corpus)
+        dictionary.filter_extremes(keep_n=theta.shape[1])
+        bow_corpus = [dictionary.doc2bow(x) for x in corpus]
+        mod = TfidfModel(bow_corpus, dictionary=dictionary)
+        corpus_tfidf = mod[bow_corpus]
+        X = corpus2dense(corpus_tfidf, num_terms=theta.shape[1]).T
+        perf.append(train_predict(X, labels))
+    
+    perf = pd.DataFrame(perf, index=methods)
+    print('Model performances on classification is:\n{}'.format(perf))
+
+
+def train_predict(X, labels):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense
+    import tensorflow as tf
+    X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.2, random_state=123)
+    train_data = tf.data.Dataset.from_tensor_slices((X_train, y_train)).cache().shuffle(1000).batch(1000).repeat()
+    val_data = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(1000).repeat()
+    model = Sequential([
+                    Dense(248, name='first', activation='relu', input_shape=(X_test.shape[1],)),
+                    Dense(248, name='hidden', activation='relu'),
+                    Dense(len(np.unique(y_train)), name='output', activation='softmax') ])
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    checkpoint = tf.keras.callbacks.ModelCheckpoint('checkpoint.hdf5', monitor='val_loss', save_best_only=True)
+    earlystop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+    model.fit(train_data, steps_per_epoch=1000, epochs=100, validation_steps=100, validation_data=val_data, callbacks=[checkpoint, earlystop])
+    perf = evaluate_model(model, X_train, X_test, y_train, y_test)
+    return perf
+
+
+def evaluate_model(model, X_train, X_test, y_train, y_test):
+    y_pred = np.argmax(model.predict(X_test), axis=1)
+    acc = accuracy_score(y_test, y_pred, normalize=True)
+    pr = precision_score(y_test, y_pred, average='macro')
+    rec = recall_score(y_test, y_pred, average='macro')
+    f1 = f1_score(y_test, y_pred, average='macro')
+    return {'Accuracy': acc, 'Precision': pr, 'Recall': rec, 'F1-score':f1}
+    
+
 def nearest_neighbors(word, embeddings, vocab):
     vectors = embeddings.data.cpu().numpy() 
     index = vocab.index(word)
-    print('vectors: ', vectors.shape)
+    # print('vectors: ', vectors.shape)
     query = vectors[index]
-    print('query: ', query.shape)
+    # print('query: ', query.shape)
     ranks = vectors.dot(query).squeeze()
     denom = query.T.dot(query).squeeze()
     denom = denom * np.sum(vectors**2, 1)
@@ -86,6 +161,14 @@ def nearest_neighbors(word, embeddings, vocab):
     ranks = ranks / denom
     mostSimilar = []
     [mostSimilar.append(idx) for idx in ranks.argsort()[::-1]]
-    nearest_neighbors = mostSimilar[:20]
+    nearest_neighbors = mostSimilar[:12]
     nearest_neighbors = [vocab[comp] for comp in nearest_neighbors]
     return nearest_neighbors
+
+# From a sparse transformed corpus of gensim, i.e. [(0, 12), (1, 15)], return matrix format: [12, 15].
+def transcorp2matrix(transcorp, bow_corpus, vector_size):
+    x = np.zeros((len(bow_corpus), vector_size))
+    for i, doc in enumerate(transcorp):
+        for wpair in doc:
+            x[i][wpair[0]] = wpair[1]
+    return x

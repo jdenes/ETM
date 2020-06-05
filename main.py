@@ -18,7 +18,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 
 from etm import ETM
-from utils import nearest_neighbors, get_topic_coherence, get_topic_diversity
+from utils import nearest_neighbors, get_topic_coherence, get_topic_diversity, get_classif_perf
 
 parser = argparse.ArgumentParser(description='The Embedded Topic Model')
 
@@ -70,23 +70,23 @@ torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(args.seed)
 
-## get data
+# Get data :
 # 1. vocabulary
 vocab, train, valid, test = data.get_data(os.path.join(args.data_path))
 vocab_size = len(vocab)
 args.vocab_size = vocab_size
 
-# 1. training data
+# 1. Training data
 train_tokens = train['tokens']
 train_counts = train['counts']
 args.num_docs_train = len(train_tokens)
 
-# 2. dev set
+# 2. Dev set
 valid_tokens = valid['tokens']
 valid_counts = valid['counts']
 args.num_docs_valid = len(valid_tokens)
 
-# 3. test data
+# 3. Test data
 test_tokens = test['tokens']
 test_counts = test['counts']
 args.num_docs_test = len(test_tokens)
@@ -96,6 +96,12 @@ args.num_docs_test_1 = len(test_1_tokens)
 test_2_tokens = test['tokens_2']
 test_2_counts = test['counts_2']
 args.num_docs_test_2 = len(test_2_tokens)
+
+# 4. Labels
+can_classify = True
+if can_classify:
+    _, labels_ts, _ = data.get_labels(args.data_path)
+    _, embed_ts, _ = data.get_embeddings(args.data_path)
 
 embeddings = None
 if not args.train_embeddings:
@@ -120,11 +126,14 @@ if not args.train_embeddings:
     embeddings = torch.from_numpy(embeddings).to(device)
     args.embeddings_dim = embeddings.size()
 
-print('=*'*100)
+print('=*'*80)
 print('Training an Embedded Topic Model on {} with the following settings: {}'.format(args.dataset.upper(), args))
-print('=*'*100)
+print('=*'*80)
+if not args.train_embeddings:
+    print('Words found: {}, i.e. {}% of vocabulary'.format(words_found, round((words_found/vocab_size) * 100, 3)))
+    print('=*'*80)
 
-## define checkpoint
+# define checkpoint
 if not os.path.exists(args.save_path):
     os.makedirs(args.save_path)
 
@@ -209,7 +218,7 @@ def visualize(m, show_emb=True):
     queries = ['andrew', 'computer', 'sports', 'religion', 'man', 'love', 
                 'intelligence', 'money', 'politics', 'health', 'people', 'family']
 
-    ## visualize topics using monte carlo
+    # visualize topics using monte carlo
     with torch.no_grad():
         print('#'*100)
         print('Visualize topics...')
@@ -223,7 +232,7 @@ def visualize(m, show_emb=True):
             print('Topic {}: {}'.format(k, topic_words))
 
         if show_emb:
-            ## visualize word embeddings by using V to get nearest neighbors
+            # visualize word embeddings by using V to get nearest neighbors
             print('#'*100)
             print('Visualize word embeddings by using output embedding matrix')
             try:
@@ -232,11 +241,10 @@ def visualize(m, show_emb=True):
                 embeddings = m.rho         # Vocab_size x E
             neighbors = []
             for word in queries:
-                print('word: {} .. neighbors: {}'.format(
-                    word, nearest_neighbors(word, embeddings, vocab)))
+                print('word: {} .. neighbors: {}'.format(word, nearest_neighbors(word, embeddings, vocab)))
             print('#'*100)
 
-def evaluate(m, source, tc=False, td=False):
+def evaluate(m, source, tc=False, td=False, classif=False):
     """Compute perplexity on document completion.
     """
     m.eval()
@@ -250,15 +258,15 @@ def evaluate(m, source, tc=False, td=False):
             tokens = test_tokens
             counts = test_counts
 
-        ## get \beta here
+        # get \beta here
         beta = m.get_beta()
 
-        ### do dc and tc here
+        # do dc and tc here
         acc_loss = 0
         cnt = 0
         indices_1 = torch.split(torch.tensor(range(args.num_docs_test_1)), args.eval_batch_size)
         for idx, ind in enumerate(indices_1):
-            ## get theta from first half of docs
+            # get theta from first half of docs
             data_batch_1 = data.get_batch(test_1_tokens, test_1_counts, ind, args.vocab_size, device)
             sums_1 = data_batch_1.sum(1).unsqueeze(1)
             if args.bow_norm:
@@ -267,7 +275,7 @@ def evaluate(m, source, tc=False, td=False):
                 normalized_data_batch_1 = data_batch_1
             theta, _ = m.get_theta(normalized_data_batch_1)
 
-            ## get prediction loss using second half
+            # get prediction loss using second half
             data_batch_2 = data.get_batch(test_2_tokens, test_2_counts, ind, args.vocab_size, device)
             sums_2 = data_batch_2.sum(1).unsqueeze(1)
             res = torch.mm(theta, beta)
@@ -283,6 +291,7 @@ def evaluate(m, source, tc=False, td=False):
         print('*'*100)
         print('{} Doc Completion PPL: {}'.format(source.upper(), ppl_dc))
         print('*'*100)
+        
         if tc or td:
             beta = beta.data.cpu().numpy()
             if tc:
@@ -291,10 +300,28 @@ def evaluate(m, source, tc=False, td=False):
             if td:
                 print('Computing topic diversity...')
                 get_topic_diversity(beta, 25)
+        
+        if classif:
+            thetas = []
+            print('Computing performances on classification task...')
+            indices = torch.split(torch.tensor(range(args.num_docs_test)), args.eval_batch_size)
+            for idx, ind in enumerate(indices):
+                data_batch = data.get_batch(test_tokens, test_counts, ind, args.vocab_size, device)
+                sums = data_batch.sum(1).unsqueeze(1)
+                if args.bow_norm:
+                    normalized_data_batch = data_batch / sums
+                else:
+                    normalized_data_batch = data_batch
+                theta, _ = m.get_theta(normalized_data_batch)
+                theta = theta.data.cpu().numpy()
+                thetas.append(theta)
+            thetas = np.concatenate(thetas)
+            get_classif_perf(thetas, test_tokens, labels_ts, embed_ts)
         return ppl_dc
 
+# Train model on data
 if args.mode == 'train':
-    ## train model on data 
+
     best_epoch = 0
     best_val_ppl = 1e9
     all_val_ppls = []
@@ -322,6 +349,8 @@ if args.mode == 'train':
         model = torch.load(f)
     model = model.to(device)
     val_ppl = evaluate(model, 'val')
+
+# Evaluate models on various metrics
 else:   
     with open(ckpt, 'rb') as f:
         model = torch.load(f)
@@ -330,7 +359,7 @@ else:
 
     with torch.no_grad():
         ## get document completion perplexities
-        test_ppl = evaluate(model, 'test', tc=args.tc, td=args.td)
+        test_ppl = evaluate(model, 'test', tc=args.tc, td=args.td, classif=True)
 
         ## get most used topics
         indices = torch.tensor(range(args.num_docs_train))

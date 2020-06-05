@@ -34,12 +34,22 @@ def _fetch(path, name):
 def get_data(path):
     with open(os.path.join(path, 'vocab.pkl'), 'rb') as f:
         vocab = pickle.load(f)
-
     train = _fetch(path, 'train')
     valid = _fetch(path, 'valid')
     test = _fetch(path, 'test')
-
     return vocab, train, valid, test
+    
+def get_labels(path):
+    labels_tr = np.load(os.path.join(path, 'labels_tr.npy'))
+    labels_ts = np.load(os.path.join(path, 'labels_ts.npy'))
+    labels_va = np.load(os.path.join(path, 'labels_va.npy'))
+    return labels_tr, labels_ts, labels_va
+    
+def get_embeddings(path):
+    embed_tr = np.load(os.path.join(path, 'embed_tr.npy'))
+    embed_ts = np.load(os.path.join(path, 'embed_ts.npy'))
+    embed_va = np.load(os.path.join(path, 'embed_va.npy'))
+    return embed_tr, embed_ts, embed_va
 
 def get_batch(tokens, counts, ind, vocab_size, device, emsize=300):
     """fetch input data by batch."""
